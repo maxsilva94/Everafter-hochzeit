@@ -51,8 +51,20 @@ async function initCloud(){
     b.disabled=false;b.textContent='Anmelden';
     if(error)document.getElementById('autherror').textContent='Anmeldung fehlgeschlagen. Zugangsdaten oder Freigabe überprüfen.';
   });
-  client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){ready=false;gate.classList.remove('hidden');message('Abgemeldet');if(channel){client.removeChannel(channel);channel=null;}} else if(session && !ready){setTimeout(()=>loadCloud(),0)}});
-  const {data:{session}}=await client.auth.getSession();if(session)await loadCloud();
+  const inviteFlow = /type=(invite|recovery)/.test(location.hash + location.search);
+  async function setupInvitedPassword(){
+    if(!inviteFlow)return;
+    const password=prompt('EverAfter: Bitte lege ein neues Passwort fest (mindestens 8 Zeichen):');
+    if(!password)return;
+    if(password.length<8){alert('Mindestens 8 Zeichen erforderlich.');return}
+    const {error}=await client.auth.updateUser({password});
+    if(error){alert('Passwort konnte nicht gespeichert werden: '+error.message);return}
+    history.replaceState(null,'',location.pathname);
+    alert('Passwort gespeichert. Dein Benutzer muss noch für den gemeinsamen Workspace freigegeben werden.');
+    await loadCloud();
+  }
+  client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){ready=false;gate.classList.remove('hidden');message('Abgemeldet');if(channel){client.removeChannel(channel);channel=null;}} else if(session && !ready && !inviteFlow){setTimeout(()=>loadCloud(),0)}});
+  const {data:{session}}=await client.auth.getSession();if(session){if(inviteFlow)await setupInvitedPassword();else await loadCloud();}
 }
 async function loadCloud(){
   if(!client)return;message('Synchronisiere …');
