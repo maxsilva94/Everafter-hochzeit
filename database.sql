@@ -12,9 +12,15 @@ alter table public.workspace enable row level security;
 revoke all on public.members from anon, authenticated;
 revoke all on public.workspace from anon;
 grant select on public.workspace to authenticated;
+create or replace function public.is_wedding_member()
+returns boolean language sql stable security definer set search_path = ''
+as $ select exists (select 1 from public.members where user_id = (select auth.uid())); $;
+revoke all on function public.is_wedding_member() from public, anon;
+grant execute on function public.is_wedding_member() to authenticated;
+drop policy if exists "Members may read workspace" on public.workspace;
 create policy "Members may read workspace" on public.workspace
   for select to authenticated using (
-    exists (select 1 from public.members m where m.user_id = (select auth.uid()))
+    (select public.is_wedding_member())
   );
 create or replace function public.save_workspace(new_data jsonb, expected_version bigint)
 returns bigint
