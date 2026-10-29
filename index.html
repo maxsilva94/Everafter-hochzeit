@@ -61,8 +61,8 @@ async function initCloud(){
     if(error)document.getElementById('autherror').textContent='Anmeldung fehlgeschlagen. Zugangsdaten oder Freigabe überprüfen.';
   });
   const inviteFlow = /type=(invite|recovery)/.test(location.hash + location.search);
-  async function setupInvitedPassword(){
-    if(!inviteFlow)return;
+  async function setupInvitedPassword(force=false){
+    if(!inviteFlow&&!force)return;
     const password=prompt('EverAfter: Bitte lege ein neues Passwort fest (mindestens 8 Zeichen):');
     if(!password)return;
     if(password.length<8){alert('Mindestens 8 Zeichen erforderlich.');return}
@@ -72,7 +72,7 @@ async function initCloud(){
     alert('Passwort gespeichert. Dein Benutzer muss noch für den gemeinsamen Workspace freigegeben werden.');
     await loadCloud();
   }
-  client.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){setTimeout(()=>setupInvitedPassword(),0);return}if(event==='SIGNED_OUT'){ready=false;gate.classList.remove('hidden');message('Abgemeldet');if(channel){client.removeChannel(channel);channel=null;}} else if(session && !ready && !inviteFlow){setTimeout(()=>loadCloud(),0)}});
+  client.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){setTimeout(()=>setupInvitedPassword(true),0);return}if(event==='SIGNED_OUT'){ready=false;gate.classList.remove('hidden');message('Abgemeldet');if(channel){client.removeChannel(channel);channel=null;}} else if(session && !ready && !inviteFlow){setTimeout(()=>loadCloud(),0)}});
   const {data:{session}}=await client.auth.getSession();if(session){if(inviteFlow)await setupInvitedPassword();else await loadCloud();}
 }
 async function loadCloud(){
