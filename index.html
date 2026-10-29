@@ -11,7 +11,7 @@
 #authgate h1{margin:0 0 8px}#authgate p{margin-bottom:20px}#authgate label{display:block;font-size:12px;font-weight:700;margin:13px 0 5px}#authgate input{width:100%;border-radius:10px;border:1px solid #dee2ec;padding:13px}#authgate button{width:100%;margin-top:18px}#autherror{color:#bf465a;font-size:12px;margin-top:12px;min-height:18px}
 #sync-state{font-size:11px;color:#e9e4ff;margin-top:13px;min-height:15px}#logout{border:1px solid #47526a;background:transparent;color:white;border-radius:8px;padding:8px 11px;margin-top:10px;cursor:pointer}
 </style>
-<div id="authgate"><div class="loginbox"><div class="eyebrow">PRIVATER WORKSPACE</div><h1>ever<span style="color:#7960e9">after.</span></h1><p>Gemeinsam planen. Nur mit persönlichem Zugang.</p><form id="login-form"><label for="email">E-Mail-Adresse</label><input id="email" type="email" autocomplete="username" required placeholder="name@beispiel.de"><label for="password">Passwort</label><input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="Dein Passwort"><button class="btn" id="login-btn" type="submit">Anmelden</button><div id="autherror" role="alert"></div></form><button type="button" class="btn" onclick="enterDemo()" style="width:100%;margin-top:12px;background:#eae5ff;color:#4733a5">Jetzt ohne Konto starten (nur dieses Gerät)</button><p style="font-size:12px;margin:18px 0 0">Im Sofortstart-Modus werden Daten nur in diesem Browser gespeichert. Bitte regelmäßig JSON-Backups exportieren. Für gemeinsame Arbeit später anmelden.</p></div></div>
+<div id="authgate"><div class="loginbox"><div class="eyebrow">PRIVATER WORKSPACE</div><h1>ever<span style="color:#7960e9">after.</span></h1><p>Gemeinsam planen. Nur mit persönlichem Zugang.</p><form id="login-form"><label for="email">E-Mail-Adresse</label><input id="email" type="email" autocomplete="username" required placeholder="name@beispiel.de"><label for="password">Passwort</label><input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="Dein Passwort"><button class="btn" id="login-btn" type="submit">Anmelden</button><button type="button" onclick="resetEverAfterPassword()" style="border:0;background:transparent;color:#6551c7;cursor:pointer;margin-top:12px;padding:6px">Passwort vergessen? Neues Passwort anfordern</button><div id="autherror" role="alert"></div></form><button type="button" class="btn" onclick="enterDemo()" style="width:100%;margin-top:12px;background:#eae5ff;color:#4733a5">Jetzt ohne Konto starten (nur dieses Gerät)</button><p style="font-size:12px;margin:18px 0 0">Im Sofortstart-Modus werden Daten nur in diesem Browser gespeichert. Bitte regelmäßig JSON-Backups exportieren. Für gemeinsame Arbeit später anmelden.</p></div></div>
 <script>
 'use strict';
 const KEY='everafter_v1';const phases=['Junggesellenabschied','Standesamt','Hochzeitsfeier'];const icons=['🥂','💐','💍'];const categories=['Location','Catering & Getränke','Musik & Unterhaltung','Dekoration & Blumen','Outfit & Styling','Fotografie & Video','Transport','Geschenke','Sonstiges'];const statuses=['Offen','In Bearbeitung','Erledigt'];const guestStatuses=['Eingeladen','Zugesagt','Abgesagt','Offen'];const navitems=[['dashboard','▦','Dashboard'],['events','◇','Veranstaltungen'],['tasks','☑','Aufgaben'],['guests','♙','Gästeliste'],['budget','◈','Budget & Kosten'],['settings','⚙','Einstellungen']];
@@ -41,6 +41,15 @@ function enterDemo(){ demoMode=true; try{const stored=localStorage.getItem('ever
 const gate=document.getElementById('authgate');
 const message=t=>{const el=document.getElementById('sync-state');if(el)el.textContent=t;};
 function checkConfig(){return window.EVERAFTER_CONFIG&&/^https:\/\//.test(window.EVERAFTER_CONFIG.url)&&window.EVERAFTER_CONFIG.publishableKey&&!window.EVERAFTER_CONFIG.publishableKey.includes('HIER_');}
+async function resetEverAfterPassword(){
+  if(!client){alert('Die Anmeldung ist noch nicht bereit. Bitte Seite neu laden.');return}
+  const email=document.getElementById('email')?.value?.trim();
+  const errorBox=document.getElementById('autherror');
+  if(!email){errorBox.textContent='Bitte zuerst deine E-Mail-Adresse eingeben.';return}
+  const redirectTo=location.origin+location.pathname;
+  const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo});
+  errorBox.textContent=error?'E-Mail konnte nicht gesendet werden: '+error.message:'Falls die Adresse registriert ist, erhältst du eine E-Mail mit einem Link zum Festlegen deines Passworts.';
+}
 async function initCloud(){
   if(!checkConfig()){document.getElementById('autherror').textContent='Noch nicht eingerichtet: config.js und Supabase-Zugang konfigurieren (siehe ANLEITUNG.md).';return}
   if(!window.supabase){document.getElementById('autherror').textContent='Die Anmeldebibliothek konnte nicht geladen werden. Internetverbindung prüfen.';return}
@@ -63,7 +72,7 @@ async function initCloud(){
     alert('Passwort gespeichert. Dein Benutzer muss noch für den gemeinsamen Workspace freigegeben werden.');
     await loadCloud();
   }
-  client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){ready=false;gate.classList.remove('hidden');message('Abgemeldet');if(channel){client.removeChannel(channel);channel=null;}} else if(session && !ready && !inviteFlow){setTimeout(()=>loadCloud(),0)}});
+  client.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){setTimeout(()=>setupInvitedPassword(),0);return}if(event==='SIGNED_OUT'){ready=false;gate.classList.remove('hidden');message('Abgemeldet');if(channel){client.removeChannel(channel);channel=null;}} else if(session && !ready && !inviteFlow){setTimeout(()=>loadCloud(),0)}});
   const {data:{session}}=await client.auth.getSession();if(session){if(inviteFlow)await setupInvitedPassword();else await loadCloud();}
 }
 async function loadCloud(){
